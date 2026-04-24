@@ -8,6 +8,7 @@
 - tqdm
 """
 
+import json
 import logging
 from pathlib import Path
 
@@ -17,11 +18,16 @@ from PIL import Image, ImageOps
 from tqdm import tqdm
 
 
-DEFAULT_WEBP_QUALITY = 85
-DEFAULT_SPLIT_MAX_PAGES = 10
-DEFAULT_PDF_DPI = 200
-DEFAULT_JOIN_CHUNK_SIZE = 10
+SETTINGS_FILE_NAME = "settings.json"
+DEFAULT_SETTINGS = {
+    "WEBP_QUALITY": 85,
+    "SPLIT_MAX_PAGES": 10,
+    "PDF_DPI": 200,
+    "JOIN_CHUNK_SIZE": 10,
+}
 LOGGER_NAME = "preprocess_materials"
+SETTINGS_LOAD_MESSAGE = ""
+SETTINGS_LOAD_LEVEL = logging.INFO
 
 
 class TqdmLoggingHandler(logging.Handler):
@@ -34,6 +40,78 @@ class TqdmLoggingHandler(logging.Handler):
 
 
 logger = logging.getLogger(LOGGER_NAME)
+
+
+def write_settings_file(settings_path: Path, settings: dict[str, int]) -> None:
+    with settings_path.open("w", encoding="utf-8") as settings_file:
+        json.dump(settings, settings_file, ensure_ascii=False, indent=4)
+        settings_file.write("\n")
+
+
+def validate_settings(settings: object) -> dict[str, int]:
+    if not isinstance(settings, dict):
+        raise ValueError("settings.json must contain a JSON object.")
+
+    validated_settings: dict[str, int] = {}
+    validators = {
+        "WEBP_QUALITY": lambda value: 1 <= value <= 100,
+        "SPLIT_MAX_PAGES": lambda value: value >= 1,
+        "PDF_DPI": lambda value: value >= 72,
+        "JOIN_CHUNK_SIZE": lambda value: value >= 1,
+    }
+
+    for key, validator in validators.items():
+        if key not in settings:
+            raise ValueError(f"Missing required setting: {key}")
+
+        value = settings[key]
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"Setting {key} must be an integer.")
+        if not validator(value):
+            raise ValueError(f"Setting {key} is out of allowed range: {value}")
+        validated_settings[key] = value
+
+    return validated_settings
+
+
+def load_settings() -> dict[str, int]:
+    global SETTINGS_LOAD_LEVEL, SETTINGS_LOAD_MESSAGE
+
+    settings_path = Path(__file__).resolve().parent / SETTINGS_FILE_NAME
+    default_settings = DEFAULT_SETTINGS.copy()
+
+    if not settings_path.exists():
+        try:
+            write_settings_file(settings_path, default_settings)
+            SETTINGS_LOAD_LEVEL = logging.INFO
+            SETTINGS_LOAD_MESSAGE = f"[INFO] Created default settings file: {settings_path.name}"
+        except OSError as exc:
+            SETTINGS_LOAD_LEVEL = logging.WARNING
+            SETTINGS_LOAD_MESSAGE = f"[WARN] Failed to create {settings_path.name}, using in-memory defaults: {exc}"
+        return default_settings
+
+    try:
+        with settings_path.open("r", encoding="utf-8") as settings_file:
+            loaded_settings = json.load(settings_file)
+        validated_settings = validate_settings(loaded_settings)
+        SETTINGS_LOAD_LEVEL = logging.INFO
+        SETTINGS_LOAD_MESSAGE = f"[INFO] Loaded settings from {settings_path.name}"
+        return validated_settings
+    except (OSError, json.JSONDecodeError, ValueError, TypeError) as exc:
+        try:
+            write_settings_file(settings_path, default_settings)
+            SETTINGS_LOAD_LEVEL = logging.WARNING
+            SETTINGS_LOAD_MESSAGE = f"[WARN] Invalid {settings_path.name} detected, recreated defaults: {exc}"
+        except OSError as write_exc:
+            SETTINGS_LOAD_LEVEL = logging.WARNING
+            SETTINGS_LOAD_MESSAGE = (
+                f"[WARN] Invalid {settings_path.name} detected and failed to rewrite defaults: {exc}; "
+                f"using in-memory defaults: {write_exc}"
+            )
+        return default_settings
+
+
+SETTINGS = load_settings()
 
 
 def setup_logging() -> logging.Logger:
@@ -76,7 +154,10 @@ def ensure_directory(path: Path) -> Path:
     return path
 
 
-def convert_images_to_webp(input_dir: Path, output_dir: Path | None = None, quality: int = DEFAULT_WEBP_QUALITY) -> None:
+def convert_images_to_webp(input_dir: Path, output_dir: Path | None = None, quality: int | None = None) -> None:
+    if quality is None:
+        quality = SETTINGS["WEBP_QUALITY"]
+
     output_dir = ensure_directory(output_dir or input_dir / "webp_output")
     supported_exts = {".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".gif"}
     images = [p for p in input_dir.iterdir() if p.is_file() and p.suffix.lower() in supported_exts]
@@ -149,7 +230,10 @@ def enhance_images_for_ocr(input_dir: Path, output_dir: Path | None = None) -> N
     logger.info(f"[INFO] Completed: {success_count}/{len(images)} image(s) enhanced into {output_dir}")
 
 
-def split_pdf(input_path: Path, max_pages: int = DEFAULT_SPLIT_MAX_PAGES, output_dir: Path | None = None) -> None:
+def split_pdf(input_path: Path, max_pages: int | None = None, output_dir: Path | None = None) -> None:
+    if max_pages is None:
+        max_pages = SETTINGS["SPLIT_MAX_PAGES"]
+
     output_dir = ensure_directory(output_dir or input_path.parent / "pdf_split")
     try:
         doc = fitz.open(str(input_path))
@@ -202,10 +286,15 @@ def split_pdf(input_path: Path, max_pages: int = DEFAULT_SPLIT_MAX_PAGES, output
 def pdf_to_images(
     input_path: Path,
     output_dir: Path | None = None,
-    dpi: int = DEFAULT_PDF_DPI,
+    dpi: int | None = None,
     join_long_image: bool = False,
-    join_chunk_size: int = DEFAULT_JOIN_CHUNK_SIZE,
+    join_chunk_size: int | None = None,
 ) -> None:
+    if dpi is None:
+        dpi = SETTINGS["PDF_DPI"]
+    if join_chunk_size is None:
+        join_chunk_size = SETTINGS["JOIN_CHUNK_SIZE"]
+
     output_dir = ensure_directory(output_dir or input_path.parent / "pdf_images")
     try:
         doc = fitz.open(str(input_path))
@@ -265,8 +354,11 @@ def join_images_vertically(
     image_paths: list[Path],
     output_dir: Path,
     base_name: str,
-    chunk_size: int = DEFAULT_JOIN_CHUNK_SIZE,
+    chunk_size: int | None = None,
 ) -> None:
+    if chunk_size is None:
+        chunk_size = SETTINGS["JOIN_CHUNK_SIZE"]
+
     if chunk_size <= 0:
         raise ValueError("chunk_size must be a positive integer")
 
@@ -397,7 +489,7 @@ def print_menu() -> None:
 def run_convert_images_to_webp() -> None:
     input_dir = prompt_existing_directory("请输入图片文件夹路径: ")
     output_dir = prompt_optional_output_dir(input_dir / "webp_output")
-    quality = prompt_int("WebP 质量", default=DEFAULT_WEBP_QUALITY, minimum=1, maximum=100)
+    quality = prompt_int("WebP 质量", default=SETTINGS["WEBP_QUALITY"], minimum=1, maximum=100)
     convert_images_to_webp(input_dir, output_dir=output_dir, quality=quality)
 
 
@@ -410,19 +502,19 @@ def run_enhance_images_for_ocr() -> None:
 def run_split_pdf() -> None:
     input_path = prompt_existing_pdf("请输入 PDF 文件路径: ")
     output_dir = prompt_optional_output_dir(input_path.parent / "pdf_split")
-    max_pages = prompt_int("每个拆分文件的最大页数", default=DEFAULT_SPLIT_MAX_PAGES, minimum=1)
+    max_pages = prompt_int("每个拆分文件的最大页数", default=SETTINGS["SPLIT_MAX_PAGES"], minimum=1)
     split_pdf(input_path, max_pages=max_pages, output_dir=output_dir)
 
 
 def run_pdf_to_images() -> None:
     input_path = prompt_existing_pdf("请输入 PDF 文件路径: ")
     output_dir = prompt_optional_output_dir(input_path.parent / "pdf_images")
-    dpi = prompt_int("导出图片 DPI", default=DEFAULT_PDF_DPI, minimum=72)
+    dpi = prompt_int("导出图片 DPI", default=SETTINGS["PDF_DPI"], minimum=72)
     join_long_image = prompt_yes_no("是否将导出的页面拼接成长图", default=False)
-    join_chunk_size = DEFAULT_JOIN_CHUNK_SIZE
+    join_chunk_size = SETTINGS["JOIN_CHUNK_SIZE"]
 
     if join_long_image:
-        join_chunk_size = prompt_int("每张长图最多拼接页数", default=DEFAULT_JOIN_CHUNK_SIZE, minimum=1)
+        join_chunk_size = prompt_int("每张长图最多拼接页数", default=SETTINGS["JOIN_CHUNK_SIZE"], minimum=1)
 
     pdf_to_images(
         input_path,
@@ -435,6 +527,8 @@ def run_pdf_to_images() -> None:
 
 def main() -> None:
     setup_logging()
+    logger.log(SETTINGS_LOAD_LEVEL, SETTINGS_LOAD_MESSAGE)
+    logger.debug("Active settings: %s", SETTINGS)
     actions = {
         "1": run_convert_images_to_webp,
         "2": run_enhance_images_for_ocr,

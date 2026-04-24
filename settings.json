@@ -1,0 +1,6 @@
+{
+    "WEBP_QUALITY": 85,
+    "SPLIT_MAX_PAGES": 10,
+    "PDF_DPI": 200,
+    "JOIN_CHUNK_SIZE": 10
+}
