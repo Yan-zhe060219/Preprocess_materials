@@ -13,6 +13,4 @@ pdf_split/
 pdf_images/
 
 build/
-dist/*
-!dist/
-!dist/*.exe
+dist/
