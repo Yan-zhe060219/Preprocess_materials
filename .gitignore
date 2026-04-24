@@ -1,0 +1,81 @@
+# =========================
+# Python 常见忽略项
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# 测试与覆盖率
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.hypothesis/
+htmlcov/
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.suo
+*.user
+*.userossc
+*.sln.docstates
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# 本项目默认输出目录（处理结果）
+# 这些目录会在运行脚本后自动生成，不建议上传
+# =========================
+webp_output/
+ocr_enhanced/
+pdf_split/
+pdf_images/
+
+# 兼容更深层目录下生成的同名输出文件夹
+**/webp_output/
+**/ocr_enhanced/
+**/pdf_split/
+**/pdf_images/
+
+# =========================
+# 本项目原始素材文件
+# 这些通常是待处理的学习资料，不建议提交到仓库
+# =========================
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.bmp
+*.gif
+*.tif
+*.tiff
