@@ -10,6 +10,7 @@
 
 import json
 import logging
+import sys
 from pathlib import Path
 
 import cv2
@@ -28,6 +29,7 @@ DEFAULT_SETTINGS = {
 LOGGER_NAME = "preprocess_materials"
 SETTINGS_LOAD_MESSAGE = ""
 SETTINGS_LOAD_LEVEL = logging.INFO
+APP_ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
 
 
 class TqdmLoggingHandler(logging.Handler):
@@ -77,7 +79,7 @@ def validate_settings(settings: object) -> dict[str, int]:
 def load_settings() -> dict[str, int]:
     global SETTINGS_LOAD_LEVEL, SETTINGS_LOAD_MESSAGE
 
-    settings_path = Path(__file__).resolve().parent / SETTINGS_FILE_NAME
+    settings_path = APP_ROOT / SETTINGS_FILE_NAME
     default_settings = DEFAULT_SETTINGS.copy()
 
     if not settings_path.exists():
@@ -124,7 +126,7 @@ def setup_logging() -> logging.Logger:
     configured_logger.setLevel(logging.DEBUG)
     configured_logger.propagate = False
 
-    log_path = Path(__file__).resolve().parent / "app.log"
+    log_path = APP_ROOT / "app.log"
     with log_path.open("a", encoding="utf-8") as log_file:
         log_file.write("--- Session Start ---\n")
         log_file.flush()

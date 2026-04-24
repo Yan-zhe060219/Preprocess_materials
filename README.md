@@ -76,8 +76,78 @@ python preprocess_materials.py
 0. 退出
 ```
 
+## Windows 打包说明
+
+如果你准备把脚本打包为 Windows 单文件 `.exe`，建议使用 PyInstaller，并保留控制台窗口，因为当前工具依赖交互式菜单、`input()`、日志输出和 `tqdm` 进度条。
+
+### 1. 安装 PyInstaller
+
+```bash
+pip install pyinstaller
+```
+
+### 2. 快速验证打包命令
+
+如果你已经准备好了自定义图标文件，例如 `app.ico`，可以在项目目录执行：
+
+```powershell
+pyinstaller --noconfirm --clean --onefile --console --name preprocess_materials --icon .\app.ico --collect-all cv2 --collect-all fitz .\preprocess_materials.py
+```
+
+打包完成后，生成的 EXE 位于：
+
+```text
+dist\preprocess_materials.exe
+```
+
+### 3. 推荐的正式打包方式
+
+项目中已经提供了 `preprocess_materials.spec`，其中包含了 `cv2` 和 `fitz` 的依赖收集规则。正式构建建议直接执行：
+
+```powershell
+pyinstaller --noconfirm --clean .\preprocess_materials.spec
+```
+
+如果项目目录下存在 `app.ico`，该图标会自动用于 EXE；如果暂时没有图标文件，`.spec` 也能正常构建，只是不会替换程序图标。
+
+### 4. 常见坑点与处理方法
+
+- `ImportError: DLL load failed while importing cv2`
+  说明 OpenCV 的动态库没有被完整收集。当前 `.spec` 已通过 `collect_all("cv2")` 处理这一问题。
+- `ModuleNotFoundError: No module named 'fitz'`
+  说明 PyMuPDF 的隐藏依赖或二进制文件没有被打进去。当前 `.spec` 已通过 `collect_all("fitz")` 处理。
+- EXE 双击后闪退
+  不要使用 `--windowed` 或 `--noconsole`，本项目必须保留 `--console`。
+- `settings.json` 或 `app.log` 没有出现在 EXE 同级目录
+  本项目已兼容 PyInstaller 冻结环境，打包后的配置文件和日志会优先使用 EXE 所在目录。
+- 修改 `.spec` 后重新打包没有生效
+  重新构建时保留 `--clean`；必要时手动删除 `build/` 和 `dist/` 后再打包。
+- 图标没有生效
+  请确认图标文件是标准 `.ico` 格式，并命名为 `app.ico` 或同步修改命令中的图标路径。
+
 ## 项目说明
 
 - `settings.json` 位于脚本同级目录，用于统一管理默认参数。
 - `test/` 用于存放开发阶段测试素材，已在 `.gitignore` 中忽略。
 - 运行后生成的 `webp_output/`、`ocr_enhanced/`、`pdf_split/`、`pdf_images/` 也已默认忽略。
+- 打包后的 `settings.json` 和 `app.log` 会优先写入 EXE 所在目录，方便直接修改配置和查看日志。
+
+## GitHub 上传说明
+
+当前仓库已经调整为适合上传“源代码 + 已打包 EXE”的形式：
+
+- 会保留源码文件，例如 `preprocess_materials.py`、`preprocess_materials.spec`、`requirements.txt`、`README.md`、`.gitignore`、`settings.json`
+- 会保留 `dist/` 目录中的 `.exe` 文件
+- 会忽略打包中间产物和运行产生的临时文件，例如 `build/`、`__pycache__/`、`test/`、日志文件、处理输出目录，以及 `dist/` 中除 `.exe` 以外的其他文件
+
+如果你之前已经把日志文件提交过，提交前可以执行：
+
+```bash
+git rm --cached app.log
+```
+
+如果 `dist/` 里已经生成了新的可执行文件，提交时确认把它一起加入版本控制即可，例如：
+
+```bash
+git add preprocess_materials.py preprocess_materials.spec settings.json requirements.txt README.md .gitignore dist\preprocess_materials.exe
+```

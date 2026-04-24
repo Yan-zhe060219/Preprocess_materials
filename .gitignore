@@ -11,3 +11,8 @@ webp_output/
 ocr_enhanced/
 pdf_split/
 pdf_images/
+
+build/
+dist/*
+!dist/
+!dist/*.exe
