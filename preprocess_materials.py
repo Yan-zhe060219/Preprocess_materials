@@ -39,14 +39,17 @@ logger = logging.getLogger(LOGGER_NAME)
 def setup_logging() -> logging.Logger:
     configured_logger = logging.getLogger(LOGGER_NAME)
     if configured_logger.handlers:
-        return configured_logger
+        for handler in configured_logger.handlers:
+            handler.close()
+        configured_logger.handlers.clear()
 
     configured_logger.setLevel(logging.DEBUG)
     configured_logger.propagate = False
 
-    log_path = Path.cwd() / "app.log"
+    log_path = Path(__file__).resolve().parent / "app.log"
     with log_path.open("a", encoding="utf-8") as log_file:
         log_file.write("--- Session Start ---\n")
+        log_file.flush()
 
     console_handler = TqdmLoggingHandler()
     console_handler.setLevel(logging.INFO)

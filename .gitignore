@@ -1,9 +1,11 @@
-# =========================
-# Python 常见忽略项
-# =========================
+# 如果 app.log 已被 Git 追踪，可执行：git rm --cached app.log
+# 如果仓库里已有多个日志文件被追踪，可执行：git rm --cached *.log
+
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyd
 *.so
 .Python
 build/
@@ -21,14 +23,15 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+pip-wheel-metadata/
 
-# 虚拟环境
+# Virtual environments
 .venv/
 venv/
 env/
 ENV/
 
-# 测试与覆盖率
+# Tool caches and test artifacts
 .coverage
 .coverage.*
 .pytest_cache/
@@ -37,45 +40,35 @@ ENV/
 .pyre/
 .hypothesis/
 htmlcov/
+.tox/
+.nox/
 
-# IDE / 编辑器
-.idea/
+# IDE / Editor
 .vscode/
+.idea/
 *.suo
 *.user
 *.userossc
 *.sln.docstates
 
-# 操作系统生成的文件
+# OS files
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# =========================
-# 本项目默认输出目录（处理结果）
-# 这些目录会在运行脚本后自动生成，不建议上传
-# =========================
+# Logs
+*.log
+
+# Project outputs
 webp_output/
 ocr_enhanced/
 pdf_split/
 pdf_images/
-
-# 兼容更深层目录下生成的同名输出文件夹
 **/webp_output/
 **/ocr_enhanced/
 **/pdf_split/
 **/pdf_images/
 
-# =========================
-# 本项目原始素材文件
-# 这些通常是待处理的学习资料，不建议提交到仓库
-# =========================
-*.pdf
-*.png
-*.jpg
-*.jpeg
-*.webp
-*.bmp
-*.gif
-*.tif
-*.tiff
+# Test materials
+test/
+**/test/
